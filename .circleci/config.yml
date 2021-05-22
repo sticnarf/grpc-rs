@@ -1,0 +1,35 @@
+version: 2.1
+commands:
+  prepare:
+    steps:
+      - checkout
+      - run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - run: cargo xtask submodule
+jobs:
+  test:
+    machine:
+      image: ubuntu-2004:202101-01
+    resource_class: arm.medium
+    steps:
+      - prepare
+      - run: rustup component add rustfmt && cargo fmt --all -- --check
+      - run: env TEST_BIND=0 cargo xtask bindgen && git diff --exit-code HEAD
+      - run: cargo xtask bindgen
+      - run: cargo build --no-default-features
+      - run: cargo build --no-default-features --features protobuf-codec
+      - run: cargo build --no-default-features --features prost-codec
+      - run: cargo build
+      - run: cargo test --release --all
+  test_openssl:
+    machine:
+      image: ubuntu-2004:202101-01
+    resource_class: arm.medium
+    steps:
+      - prepare
+      - run: cargo test --release --features "openssl-vendored" --all
+workflows:
+  version: 2
+  build:
+    jobs:
+      - test
+      - test_openssl
